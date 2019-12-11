@@ -1,0 +1,45 @@
+group 'card-applets'
+apply plugin: 'javacard'
+
+// Common settings, definitions
+final def rootPath = rootDir.absolutePath
+final def libs = rootPath + '/libs'
+final def libs_gp211 = rootPath + '/libs/globalplatform-2_1_1'
+final def libsSdk = rootPath + '/libs-sdks'
+final def JC304 = libsSdk + '/jc304_kit'
+
+/*
+convertJavacard {
+    dependsOn ':tools:convertJavacard'
+}
+*/
+
+javacard {
+    sdkVersion = "3.0.4"
+
+    cap {
+        packageName = 'dx'
+        version = '0.1'
+        aid = '0xCA:0xFE:0xBA:0xBE:0x42'
+
+        applet {
+            className = 'CafeBabeApplet'
+            aid = '0xCA:0xFE:0xBA:0xBE:0x42:0x01'
+        }
+
+        dependencies {
+            compile fileTree(dir: libs_gp211, include: '*.jar')
+            javacardExport files([
+                    libs_gp211,
+                rootPath + '/build/javacard/'
+            ])
+            compile files(rootDir.absolutePath + '/build/classes/java/main/')
+            //compile project(':tools')
+        }
+    }
+}
+
+compileJava {
+    sourceCompatibility = 1.6
+    targetCompatibility = 1.6
+}
