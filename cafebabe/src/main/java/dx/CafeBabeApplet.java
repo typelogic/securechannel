@@ -143,7 +143,7 @@ public class CafeBabeApplet extends Applet
     {
         switch (this.ins) {
         case INS_HELLOWORLD:
-            ins_helloworld(apdu);
+            ins_helloworld();
             break;
         case INS_POKE:
             ins_poke();
@@ -327,12 +327,8 @@ public class CafeBabeApplet extends Applet
 
     ////////////////////////////////////////////////////////////////////////////
 
-    private void ins_helloworld(APDU apdu)
+    private void ins_helloworld()
     {
-        if (p1 == 0x00) {
-            byte sl = secureChannel.getSecurityLevel();
-        }
-
         if (p2 == 0x00) {
             setIncomingAndReceiveUnwrap();
             byte[] buffer = getApduData();
@@ -375,7 +371,7 @@ public class CafeBabeApplet extends Applet
             byte[] buffer = getApduData();
 
             if (lc > 0) {
-                if (p2 == 0x01) {
+                if ((p2 & 1) != 0) {
                     if (m_memo != null) {
                         m_memo = null;
                         requestObjectDeletion();
@@ -386,7 +382,9 @@ public class CafeBabeApplet extends Applet
                         buffer, (short)0, m_memo, (short)0, (short)lc);
                 }
 
-                setOutgoingAndSendWrap(buffer, SHORT_00, lc);
+                if ((p2 & 2) == 0) {
+                    setOutgoingAndSendWrap(buffer, SHORT_00, lc);
+                }
 
             } else {
                 if (m_memo != null) {
