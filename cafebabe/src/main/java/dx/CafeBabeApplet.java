@@ -77,7 +77,9 @@ public class CafeBabeApplet extends Applet
             ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
         }
 
-        ins_poke();
+        if ((m_control[0] & 4) == 4) {
+            ins_poke();
+	}
     }
 
     public void process(APDU apdu) throws ISOException
@@ -355,7 +357,9 @@ public class CafeBabeApplet extends Applet
             Util.arrayCopyNonAtomic(
                 m_status, (short)0, buffer, (short)0, STATUS_LEN);
             setOutgoingAndSendWrap(buffer, SHORT_00, STATUS_LEN);
-        }
+        } else if (p1 == 0x7F) {
+            m_status[p2] = 0x00;
+	}
     }
 
     public void ins_echo()
@@ -371,8 +375,11 @@ public class CafeBabeApplet extends Applet
         }
 
         if (p1 == 0x00) {
+            m_status[2] = (byte)(m_status[2] | 1);
             short lc = setIncomingAndReceiveUnwrap();
+            m_status[2] = (byte)(m_status[2] | 2);
             byte[] buffer = getApduData();
+            m_status[2] = (byte)(m_status[2] | 4);
 
             if (lc > 0) {
                 if (p2 == 0x01) {
@@ -381,6 +388,7 @@ public class CafeBabeApplet extends Applet
                         requestObjectDeletion();
                     }
 
+                    m_status[2] = (byte)(m_status[2] | 8);
                     m_memo = new byte[lc];
                     Util.arrayCopy(
                         buffer, (short)0, m_memo, (short)0, (short)lc);
@@ -401,6 +409,14 @@ public class CafeBabeApplet extends Applet
 
     public void ins_control()
     {
-        m_control[p1] = p2;
+        if (p1 == 0x7F) { // get
+            short lc = setIncomingAndReceiveUnwrap();
+            byte[] buffer = getApduData();
+            Util.arrayCopy(
+                m_control, (short)0, buffer, (short)0, (short)CONTROL_LEN);
+            setOutgoingAndSendWrap(buffer, SHORT_00, CONTROL_LEN);
+        } else { // set
+            m_control[p1] = p2;
+	}
     }
 }
