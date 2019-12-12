@@ -364,6 +364,10 @@ public class CafeBabeApplet extends Applet
             if (!(isCheckC_MAC() && isCheckC_DECRYPTION())) {
                 ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
             }
+        } else if ((m_control[0] & 2) == 2) {
+            if (!(isCheckC_MAC() || isCheckC_DECRYPTION())) {
+                ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+            }
         }
 
         if (p1 == 0x00) {
