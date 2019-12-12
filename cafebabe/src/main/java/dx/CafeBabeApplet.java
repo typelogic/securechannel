@@ -67,7 +67,6 @@ public class CafeBabeApplet extends Applet
     {
         /* select -> process -> processSelect */
         secureChannel = GPSystem.getSecureChannel();
-        m_status[1] = (byte)(m_status[1] | 1);
         return true;
     }
 
@@ -101,9 +100,13 @@ public class CafeBabeApplet extends Applet
 
             switch (ins) {
             case INS_INITIALIZE_UPDATE:
+                m_status[9] = (byte)(m_status[9] | 1);
             case ISO7816.INS_EXTERNAL_AUTHENTICATE:
+                m_status[9] = (byte)(m_status[9] | 2);
             case INS_BEGIN_RMAC_SESSION:
+                m_status[9] = (byte)(m_status[9] | 4);
             case INS_END_RMAC_SESSION:
+                m_status[9] = (byte)(m_status[9] | 8);
                 checkClaIsGp();
                 // allow to make contactless SCP
                 // checkProtocolContacted();
@@ -123,7 +126,6 @@ public class CafeBabeApplet extends Applet
 
     public void deselect()
     {
-        m_status[1] = (byte)(m_status[1] | 2);
         secureChannel.resetSecurity();
     }
 
@@ -184,6 +186,7 @@ public class CafeBabeApplet extends Applet
         short overallLength = APDU.getCurrentAPDU().getIncomingLength();
 
         if (isExtendedLengthData) {
+            m_status[7] = 0x69;
             apduData = new byte[LENGTH_APDU_EXTENDED];
 
             Util.arrayCopyNonAtomic(buffer,
@@ -375,11 +378,8 @@ public class CafeBabeApplet extends Applet
         }
 
         if (p1 == 0x00) {
-            m_status[2] = (byte)(m_status[2] | 1);
             short lc = setIncomingAndReceiveUnwrap();
-            m_status[2] = (byte)(m_status[2] | 2);
             byte[] buffer = getApduData();
-            m_status[2] = (byte)(m_status[2] | 4);
 
             if (lc > 0) {
                 if (p2 == 0x01) {
@@ -388,7 +388,6 @@ public class CafeBabeApplet extends Applet
                         requestObjectDeletion();
                     }
 
-                    m_status[2] = (byte)(m_status[2] | 8);
                     m_memo = new byte[lc];
                     Util.arrayCopy(
                         buffer, (short)0, m_memo, (short)0, (short)lc);
