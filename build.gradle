@@ -28,8 +28,7 @@ subprojects {
 
         // Local lib repository
         flatDir {
-            dirs libs
-            dirs libs_gp211
+            dirs libs,libs_gp211
         }
     }
     
