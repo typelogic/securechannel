@@ -1,7 +1,14 @@
+
 subprojects {
-    final def rootPath = rootDir.absolutePath
-    final def libs = rootPath + '/libs'
-    final def libs_gp211 = rootPath + '/libs/globalplatform-2_1_1'
+    final def _rootPath = rootDir.absolutePath
+    final def _libs = _rootPath + '/libs'
+    final def _libs_gp211 = _rootPath + '/libs/globalplatform-2_1_1'
+
+    ext {
+        rootPath = _rootPath
+        libs = _libs
+        libs_gp211 = _libs_gp211 
+    }
 
     buildscript {
         repositories {
