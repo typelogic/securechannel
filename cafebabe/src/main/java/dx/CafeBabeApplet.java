@@ -23,6 +23,7 @@ public class CafeBabeApplet extends Applet
     private static final byte INS_POKE = (byte)0x01;
     private static final byte INS_ECHO = (byte)0x02;
     private static final byte INS_CONTROL = (byte)0x03;
+    private static final byte INS_SYSTEM = (byte)0x04;
 
     private final static short LENGTH_APDU_EXTENDED = (short)0x7FFF;
 
@@ -32,8 +33,8 @@ public class CafeBabeApplet extends Applet
 
     protected static final byte MASK_GP = (byte)0x80;
     protected static final byte MASK_SECURED = (byte)0x0C;
-    protected static final byte STATUS_LEN = (byte)0x08;
-    protected static final byte CONTROL_LEN = (byte)0x03;
+    protected static final byte STATUS_LEN = (byte)0x02;
+    protected static final byte CONTROL_LEN = (byte)0x02;
 
     public static final byte BYTE_00 = (byte)0x00;
     public static final short SHORT_00 = (short)0x0000;
@@ -67,7 +68,6 @@ public class CafeBabeApplet extends Applet
     {
         /* select -> process -> processSelect */
         secureChannel = GPSystem.getSecureChannel();
-        m_status[1] = (byte)(m_status[1] | 1);
         return true;
     }
 
@@ -76,8 +76,6 @@ public class CafeBabeApplet extends Applet
         if (!selectingApplet()) {
             ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
         }
-
-        ins_poke();
     }
 
     public void process(APDU apdu) throws ISOException
@@ -121,7 +119,6 @@ public class CafeBabeApplet extends Applet
 
     public void deselect()
     {
-        m_status[1] = (byte)(m_status[1] | 2);
         secureChannel.resetSecurity();
     }
 
@@ -146,13 +143,16 @@ public class CafeBabeApplet extends Applet
             ins_helloworld();
             break;
         case INS_POKE:
-            ins_poke();
+            ins_poke(apdu);
             break;
         case INS_ECHO:
             ins_echo();
             break;
         case INS_CONTROL:
             ins_control();
+            break;
+        case INS_SYSTEM:
+            ins_system();
             break;
         default:
             ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
@@ -339,18 +339,22 @@ public class CafeBabeApplet extends Applet
         }
     }
 
-    public void ins_poke()
+    public void ins_poke(APDU apdu)
     {
         byte sl = secureChannel.getSecurityLevel();
         m_status[0] = sl;
+        m_status[1] = m_control[0];
 
         if (p1 == 0x00) {
             setIncomingAndReceiveUnwrap();
             byte[] buffer = getApduData();
-
-            Util.arrayCopyNonAtomic(
-                m_status, (short)0, buffer, (short)0, STATUS_LEN);
+ 
+            Util.arrayCopyNonAtomic(m_status, (short)0, buffer, (short)0, STATUS_LEN);
             setOutgoingAndSendWrap(buffer, SHORT_00, STATUS_LEN);
+        } else if ((p1 & 0x01) == 0x01) {
+            byte[] buffer = apdu.getBuffer();
+            Util.arrayCopyNonAtomic(m_status,(short)0, buffer,(short)0,STATUS_LEN);
+            apdu.setOutgoingAndSend((short)0, (short)(STATUS_LEN + 0));
         }
     }
 
@@ -358,13 +362,13 @@ public class CafeBabeApplet extends Applet
     {
         if ((m_control[0] & 1) == 1) {
             if (!(isCheckC_MAC() && isCheckC_DECRYPTION())) {
-                ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
-            }
+                 ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+             }
         } else if ((m_control[0] & 2) == 2) {
             if (!(isCheckC_MAC() || isCheckC_DECRYPTION())) {
-                ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
-            }
-        }
+                 ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+         	}
+       }
 
         if (p1 == 0x00) {
             short lc = setIncomingAndReceiveUnwrap();
@@ -395,6 +399,17 @@ public class CafeBabeApplet extends Applet
                 }
             }
         }
+    }
+
+    public void ins_system()
+    {
+        setIncomingAndReceiveUnwrap();
+        byte[] buffer = getApduData();
+        short value = JCSystem.getAvailableMemory(JCSystem.MEMORY_TYPE_PERSISTENT);
+        byte SL = secureChannel.getSecurityLevel();
+        buffer[0] = SL;
+        short length = Util.setShort(buffer,(short)0x0001,value);
+        setOutgoingAndSendWrap(buffer, SHORT_00, length);
     }
 
     public void ins_control()

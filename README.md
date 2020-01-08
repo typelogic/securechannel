@@ -51,6 +51,211 @@ breach of one card sharing same key will breach every cards. Many cards can shar
 and the card can use its unique serial number in order to appear different, but yet fully 
 communicable. 
 
+# Zoom Into Secure Channel
 
+The below will setup secure channel `MAC` and `ENC` into coffee applet:
+
+```
+/card
+/select C0FFEE0102030405
+init-update
+ext-auth enc
+```
+
+Take note that `/send` and `send` are different methods of sending command into
+an applet. The one without a slash is the secure method with CLA value `0x04`
+and you will notice that the offcard appends a `MAC` into the sent apdu. Whereas,
+the `/send` will send the apdu as-is without `MAC`. 
+
+Let us poke into coffee applet **securely** to get is current `SL`:
+```
+cm> send 00010000
+ => 04 01 00 00 10 FF A2 7F A3 88 8F 44 6F 13 D3 2B    ...........Do..+
+    2B B0 FE 1B 09                                     +....
+ (20557 usec)
+ <= 83 00 90 00                                        ....
+Status: No Error
+cm>
+```
+
+Let us poke again, second time:
+```
+cm> send 00010000
+ => 04 01 00 00 10 FF A2 7F A3 88 8F 44 6F 8F C5 D9    ...........Do...
+    9B BC DD C5 91                                     .....
+ (17023 usec)
+ <= 83 00 90 00                                        ....
+Status: No Error
+cm>
+```
+
+Notice, it gave the same `SL` value of `0x83` correctly. In the following 16 bytes, the first 8 bytes
+is the encrypted data, the next 8 bytes is the MAC. True, there is no data in the command `00010000` APDU
+but there is still padding even empty data hence these 8 bytes which stays same value. But the `MAC`
+varies each time. Let us try to send command with data, even though this data is not used.
+
+```
+cm> send 0001000003010203
+ => 04 01 00 00 10 26 88 07 42 A6 C4 C1 A6 D2 D1 25    .....&..B......%
+    FB 0F 95 B3 F4                                     .....
+ (18001 usec)
+ <= 83 00 90 00                                        ....
+Status: No Error
+cm>
+```
+
+Set us send again:
+
+```
+cm> send 0001000003010203
+ => 04 01 00 00 10 26 88 07 42 A6 C4 C1 A6 7D 02 6C    .....&..B....}.l
+    00 5B F6 B3 6B                                     .[..k
+ (17839 usec)
+ <= 83 00 90 00                                        ....
+Status: No Error
+cm>
+```
+
+Same data, same encrypted 8 bytes but always different MAC. 
+
+Let us now, send the same command in an **insecure way** using `/send`:
+```
+cm> /send 00010100
+ => 00 01 01 00                                        ....
+ (10184 usec)
+ <= 90 00                                              ..
+Status: No Error
+cm>
+```
+
+From the command above, we have p1 = `0x01` in hope to let the applet return a
+value without involving secure channel (wrap/unwrap) operations. The command seems
+to succeed but no data is given back. 
+
+Let us look more closely:
+```
+cm> init-update
+ => 80 50 00 00 08 95 82 A3 B5 A2 11 FB B5 00          .P............
+ (22941 usec)
+ <= 00 00 83 09 18 02 30 57 05 2F 03 02 00 17 CE F0    ......0W./......
+    34 B4 F2 F1 7A EC 4A C6 CD C1 FE F6 90 00          4...z.J.......
+Status: No Error
+cm> ext-auth enc
+ => 84 82 03 00 10 93 9E 53 59 58 C6 16 B5 D6 4C 4E    .......SYX....LN
+    7D B9 CA 7D 2F                                     }..}/
+ (19178 usec)
+ <= 90 00                                              ..
+Status: No Error
+
+cm> send 00010000
+ => 04 01 00 00 10 5F 9C 45 39 76 12 89 01 B5 E2 B7    ....._.E9v......
+    8B 38 A4 D4 37                                     .8..7
+ (20679 usec)
+ <= 83 00 90 00                                        ....
+Status: No Error
+
+cm> send 00010000
+ => 04 01 00 00 10 5F 9C 45 39 76 12 89 01 76 72 42    ....._.E9v...vrB
+    29 D7 F4 4E DD                                     )..N.
+ (17346 usec)
+ <= 83 00 90 00                                        ....
+Status: No Error
+
+*** THIS IS THE COMMAND TO WATCH OUT FOR ***
+cm> send 00010100
+ => 04 01 01 00 10 5F 9C 45 39 76 12 89 01 F3 2F E0    ....._.E9v..../.
+    00 5B 46 22 8F                                     .[F".
+ (11635 usec)
+ <= 90 00                                              ..
+Status: No Error
+
+cm> send 00010100
+ => 04 01 01 00 10 5F 9C 45 39 76 12 89 01 80 70 A1    ....._.E9v....p.
+    B2 CA 79 30 CF                                     ..y0.
+ (8288 usec)
+ <= 90 00                                              ..
+Status: No Error
+
+cm> send 00010000
+ => 04 01 00 00 10 5F 9C 45 39 76 12 89 01 A7 FF 68    ....._.E9v.....h
+    58 D1 4E 28 0E                                     X.N(.
+ (16597 usec)
+ <= 69 82                                              i.
+Status: Security condition not satisfied
+cm>
+
+cm> send 00010000
+ => 04 01 00 00 10 5F 9C 45 39 76 12 89 01 61 0A 7E    ....._.E9v...a.~
+    11 E6 CA E9 EA                                     .....
+ (17086 usec)
+ <= 00 00 90 00                                        ....
+Status: No Error
+
+cm> /send 00010000
+ => 00 01 00 00                                        ....
+ (15600 usec)
+ <= 00 00 90 00                                        ....
+Status: No Error
+
+cm> /send 00010000
+ => 00 01 00 00                                        ....
+ (12301 usec)
+ <= 00 00 90 00                                        ....
+Status: No Error
+
+cm> send 00010000
+ => 04 01 00 00 10 5F 9C 45 39 76 12 89 01 93 2B 99    ....._.E9v....+.
+    81 AB 36 85 FE                                     ..6..
+ (17252 usec)
+ <= 00 00 90 00                                        ....
+Status: No Error
+
+cm> session-info 
+Session State           : Established & authenticated
+Version                 : Global Platform 2.1.1
+Secure Channel Protocol : SCP 02 option 15
+Security Level          : C-MAC and C-ENC
+
+cm>
+```
+
+The command `send 00010100` attempting to return data freely bypassing current security level
+succedded with return code `0x9000` but did not return data. However, it had an effect that it 
+resets the applet's security level to `0x00`.
+Whereas, note the `offcard` thinks otherwise. So the `card` and the `offcard` are now in an
+inconsistent state with regards to security level setting.
+
+This only happened because of the way the applet's I/O is implemented. 
+
+With `MAC` only security, there is only 8 bytes following the command apdu:
+
+```
+cm> session-info
+Session State           : Established & authenticated
+Version                 : Global Platform 2.1.1
+Secure Channel Protocol : SCP 02 option 15
+Security Level          : C-MAC
+
+cm>
+cm> send 00010000
+ => 04 01 00 00 08 71 71 9E 87 C1 0F B7 97             .....qq......
+ (19344 usec)
+ <= 81 00 90 00                                        ....
+Status: No Error
+cm>
+
+cm> send 00010000
+ => 04 01 00 00 08 BE 41 8F 6E 29 F5 2D AD             ......A.n).-.
+ (15885 usec)
+ <= 81 00 90 00                                        ....
+Status: No Error
+
+cm> send 00010000
+ => 04 01 00 00 08 0B FD B5 6A 32 EC DF FA             ........j2...
+ (15968 usec)
+ <= 81 00 90 00                                        ....
+Status: No Error
+cm>
+```
 
 
