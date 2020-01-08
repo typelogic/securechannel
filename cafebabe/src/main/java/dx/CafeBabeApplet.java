@@ -49,7 +49,7 @@ public class CafeBabeApplet extends Applet
     private byte[] m_control;
     private byte[] m_memo;
 
-    private SecureChannel secureChannel;
+    protected SecureChannel secureChannel;
 
     public static void requestObjectDeletion()
     {
@@ -58,7 +58,7 @@ public class CafeBabeApplet extends Applet
         }
     }
 
-    CafeBabeApplet()
+    protected CafeBabeApplet()
     {
         m_status = new byte[STATUS_LEN];
         m_control = new byte[CONTROL_LEN];
